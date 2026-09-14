@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Ledger — Time & Focus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#10131A;
+    --panel:#181C25;
+    --panel-raised:#1F2430;
+    --line:#2A2F3B;
+    --line-soft:#20242E;
+    --text:#ECEEF3;
+    --text-dim:#8A90A0;
+    --text-faint:#565C6B;
+    --accent:#4FD8C4;
+    --accent-dim:rgba(79,216,196,.14);
+    --accent-line:rgba(79,216,196,.35);
+    --warn:#E4934E;
+    --warn-dim:rgba(228,147,78,.14);
+    --danger:#E2635A;
+    --radius:10px;
+    --radius-sm:6px;
+    --sans:'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--text);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+  button{font-family:inherit;}
+  input,select{font-family:inherit;}
+  ::selection{background:var(--accent-dim);color:var(--text);}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+
+  #app{
+    max-width:480px;
+    margin:0 auto;
+    height:100dvh;
+    display:flex;
+    flex-direction:column;
+    background:var(--ink);
+    position:relative;
+    border-left:1px solid var(--line-soft);
+    border-right:1px solid var(--line-soft);
+  }
+
+  /* ---------- Ledger header ---------- */
+  .ledger{
+    padding:18px 20px 14px;
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+  }
+  .ledger-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .ledger-date{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .ledger-date button{
+    background:none;border:none;color:var(--text-dim);
+    width:26px;height:26px;border-radius:var(--radius-sm);
+    cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;
+  }
+  .ledger-date button:hover{background:var(--panel);color:var(--text);}
+  .ledger-date .day-label{
+    font-size:14px;font-weight:600;color:var(--text);
+    min-width:120px;text-align:center;
+  }
+  .ledger-date .day-label small{color:var(--text-dim);font-weight:500;}
+  .icon-btn{
+    background:none;border:1px solid var(--line);color:var(--text-dim);
+    width:32px;height:32px;border-radius:var(--radius-sm);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:15px;
+  }
+  .icon-btn:hover{color:var(--text);border-color:var(--text-faint);}
+
+  .ledger-score{
+    display:flex;align-items:baseline;justify-content:center;gap:6px;
+    margin-bottom:10px;
+  }
+  .ledger-score .val{font-family:var(--mono);font-size:40px;font-weight:600;letter-spacing:-0.5px;}
+  .ledger-score .max{font-family:var(--mono);font-size:18px;color:var(--text-faint);}
+  .ledger-score .lbl{font-size:12px;color:var(--text-dim);margin-left:4px;}
+
+  .gauge{
+    height:8px;border-radius:5px;background:var(--panel);
+    overflow:hidden;position:relative;border:1px solid var(--line);
+  }
+  .gauge-fill{height:100%;background:var(--accent);border-radius:5px;transition:width .4s ease;}
+  .gauge-fill.over{background:var(--warn);}
+
+  /* ---------- Now-playing bar (live countdown, always visible) ---------- */
+  .now-bar{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 16px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(79,216,196,.08), transparent);
+    flex-shrink:0;cursor:pointer;
+  }
+  .now-bar.paused{background:linear-gradient(180deg, rgba(228,147,78,.08), transparent);}
+  .now-bar-info{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+  .now-bar-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px rgba(79,216,196,.15);}
+  .now-bar.paused .now-bar-dot{box-shadow:0 0 0 3px rgba(228,147,78,.15);}
+  .now-bar-title{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .now-bar-sub{font-size:10.5px;color:var(--text-dim);flex-shrink:0;}
+  .now-bar-time{font-size:19px;font-weight:600;color:var(--accent);letter-spacing:-.3px;flex-shrink:0;}
+  .now-bar.paused .now-bar-time{color:var(--warn);}
+  .now-bar-btn{
+    width:28px;height:28px;border-radius:50%;border:1px solid var(--accent-line);
+    background:var(--accent-dim);color:var(--accent);cursor:pointer;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:11px;
+  }
+  .now-bar.paused .now-bar-btn{border-color:var(--warn);background:var(--warn-dim);color:var(--warn);}
+
+  /* ---------- Main / views ---------- */
+  main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:12px;}
+  .view-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 20px 8px;
+  }
+  .view-head h2{font-size:14px;font-weight:600;margin:0;color:var(--text);}
+  .add-btn{
+    background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-line);
+    font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:var(--radius-sm);
+    cursor:pointer;display:flex;align-items:center;gap:5px;
+  }
+  .add-btn:hover{background:rgba(79,216,196,.22);}
+
+  .empty-state{
+    margin:24px 20px;padding:28px 18px;border:1px dashed var(--line);border-radius:var(--radius);
+    text-align:center;color:var(--text-dim);font-size:13.5px;
+  }
+  .empty-state button{margin-top:12px;}
+
+  /* Task rows */
+  .task-list{padding:4px 14px 8px;display:flex;flex-direction:column;gap:6px;}
+  .task-row{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:11px 12px;display:flex;flex-direction:column;gap:7px;
+  }
+  .task-row.done{opacity:.62;}
+  .task-row.active{border-color:var(--accent-line);background:linear-gradient(180deg, rgba(79,216,196,.06), transparent 60%), var(--panel);}
+  .task-top{display:flex;align-items:center;gap:9px;}
+  .cat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .task-title{flex:1;font-size:14.5px;font-weight:500;color:var(--text);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;}
+  .task-row.done .task-title{text-decoration:line-through;text-decoration-color:var(--text-faint);}
+  .task-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .play-btn{
+    width:30px;height:30px;border-radius:50%;border:1px solid var(--accent-line);
+    background:var(--accent-dim);color:var(--accent);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;
+  }
+  .play-btn.pause{border-color:var(--warn);background:var(--warn-dim);color:var(--warn);}
+  .menu-btn{
+    width:26px;height:26px;border:none;background:none;color:var(--text-faint);
+    cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;
+  }
+  .menu-btn:hover{color:var(--text-dim);}
+  .task-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .task-meta .left{font-size:11.5px;color:var(--text-dim);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .task-meta-right{display:flex;align-items:center;gap:9px;flex-shrink:0;}
+  .task-meta .pts{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600;flex-shrink:0;}
+  .task-meta .pts.zero{color:var(--text-faint);}
+  .timer-remain{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--accent);}
+  .timer-remain.paused{color:var(--warn);}
+  .mini-bar{height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:1px;}
+  .mini-bar i{display:block;height:100%;background:var(--accent);}
+  .mini-bar i.over{background:var(--warn);}
+
+  /* ---------- Bottom nav ---------- */
+  nav.tabs{
+    display:flex;border-top:1px solid var(--line);flex-shrink:0;
+    background:var(--panel);
+  }
+  nav.tabs button{
+    flex:1;background:none;border:none;color:var(--text-faint);
+    padding:10px 4px 9px;font-size:11px;font-weight:600;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+  }
+  nav.tabs button svg{width:18px;height:18px;}
+  nav.tabs button.active{color:var(--accent);}
+  nav.tabs button.active svg{stroke:var(--accent);}
+
+  /* ---------- Calendar ---------- */
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 4px;}
+  .cal-nav .month{font-size:14.5px;font-weight:600;}
+  .cal-nav .btns{display:flex;gap:6px;}
+  .cal-grid{padding:10px 14px 4px;}
+  .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px;}
+  .cal-dow span{text-align:center;font-size:10.5px;color:var(--text-faint);font-weight:600;}
+  .cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .cal-cell{
+    aspect-ratio:1/1;border-radius:var(--radius-sm);border:1px solid var(--line);
+    background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    cursor:pointer;gap:2px;position:relative;
+  }
+  .cal-cell.empty{border:none;background:none;cursor:default;}
+  .cal-cell.today{border-color:var(--accent-line);}
+  .cal-cell .d{font-family:var(--mono);font-size:12px;color:var(--text-dim);}
+  .cal-cell.today .d{color:var(--accent);font-weight:600;}
+  .cal-cell .p{font-family:var(--mono);font-size:9.5px;color:var(--text-faint);}
+  .cal-cell .ring{position:absolute;inset:3px;border-radius:inherit;pointer-events:none;}
+  .cal-cell.haspts .p{color:var(--accent);}
+
+  /* ---------- Stats ---------- */
+  .stat-panel{margin:10px 20px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;}
+  .stat-panel + .stat-panel{margin-top:12px;}
+  .stat-panel h3{margin:0 0 12px;font-size:12.5px;font-weight:600;color:var(--text-dim);}
+  .bars{display:flex;align-items:flex-end;gap:8px;height:90px;}
+  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:5px;}
+  .bar-col .track{width:100%;flex:1;display:flex;align-items:flex-end;background:var(--line-soft);border-radius:4px;overflow:hidden;}
+  .bar-col .fill{width:100%;background:var(--accent);border-radius:4px 4px 0 0;}
+  .bar-col .val{font-family:var(--mono);font-size:9.5px;color:var(--text-faint);}
+  .bar-col .lbl{font-size:9.5px;color:var(--text-faint);}
+  .stat-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line-soft);}
+  .stat-row:last-child{border-bottom:none;}
+  .stat-row .k{font-size:13px;color:var(--text-dim);}
+  .stat-row .v{font-family:var(--mono);font-size:14px;font-weight:600;}
+
+  /* ---------- Settings ---------- */
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600;}
+  .field input[type=text], .field input[type=number], .field select{
+    width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);
+    padding:10px 11px;border-radius:var(--radius-sm);font-size:14px;
+  }
+  .field input:focus, .field select:focus{outline:none;border-color:var(--accent-line);}
+  .field .hint{font-size:11.5px;color:var(--text-faint);margin-top:6px;line-height:1.5;}
+  .cat-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
+  .cat-item{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;}
+  .cat-item span.name{flex:1;font-size:13px;}
+  .cat-item button{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:15px;}
+  .swatches{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px;}
+  .swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
+  .swatch.sel{border-color:var(--text);}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    padding:11px 16px;border-radius:var(--radius-sm);font-size:13.5px;font-weight:600;
+    cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--text);width:100%;
+  }
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#0A1512;}
+  .btn.danger{color:var(--danger);border-color:rgba(226,99,90,.4);}
+  .btn.ghost{background:none;}
+  .btn-row{display:flex;gap:8px;}
+  .btn-row .btn{width:auto;flex:1;}
+
+  /* ---------- Overlay / modal ---------- */
+  .scrim{
+    position:absolute;inset:0;background:rgba(6,7,10,.6);
+    display:flex;align-items:flex-end;z-index:20;
+  }
+  .sheet{
+    width:100%;max-height:88%;overflow-y:auto;background:var(--panel-raised);
+    border-top:1px solid var(--line);border-radius:16px 16px 0 0;
+    padding:16px 20px 24px;animation:slideup .22s ease;
+  }
+  @keyframes slideup{from{transform:translateY(16px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .sheet-head h3{margin:0;font-size:15px;font-weight:600;}
+  .sheet-head button{background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1;}
+  .chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+  .chip{padding:6px 11px;border-radius:20px;border:1px solid var(--line);background:var(--panel);color:var(--text-dim);font-size:12px;cursor:pointer;}
+  .chip.sel{border-color:var(--accent-line);background:var(--accent-dim);color:var(--accent);}
+  .chip.cat{display:flex;align-items:center;gap:6px;}
+  .chip-row.scroll{max-height:136px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 2px 0;}
+  .field-hint-inline{color:var(--text-faint);font-weight:500;font-size:11px;}
+  .day-final-tag{color:var(--accent);font-weight:600;}
+
+  /* ---------- Focus timer overlay ---------- */
+  .focus-overlay{
+    position:absolute;inset:0;background:var(--ink);z-index:30;
+    display:flex;flex-direction:column;
+  }
+  .focus-top{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;}
+  .focus-top .close{background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;}
+  .focus-top .cat{font-size:12px;color:var(--text-dim);}
+  .focus-mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:0 24px;}
+  .focus-title{font-size:16px;font-weight:600;text-align:center;}
+  .ring-wrap{position:relative;width:230px;height:230px;}
+  .ring-wrap svg{transform:rotate(-90deg);width:100%;height:100%;}
+  .ring-track{stroke:var(--line);}
+  .ring-fill{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset .3s linear;}
+  .ring-fill.over{stroke:var(--warn);}
+  .ring-time{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:38px;font-weight:600;letter-spacing:-0.5px;
+  }
+  .focus-planned{font-size:12px;color:var(--text-dim);}
+  .focus-controls{display:flex;gap:12px;padding:20px 24px 30px;}
+  .focus-controls button{flex:1;padding:14px;border-radius:12px;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer;}
+  .focus-controls button.primary{background:var(--accent);border-color:var(--accent);color:#0A1512;}
+  .toast{
+    position:absolute;bottom:78px;left:50%;transform:translateX(-50%);
+    background:var(--panel-raised);border:1px solid var(--line);color:var(--text);
+    padding:10px 16px;border-radius:20px;font-size:12.5px;z-index:40;
+    box-shadow:0 6px 20px rgba(0,0,0,.35);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="ledger">
+    <div class="ledger-top">
+      <div class="ledger-date">
+        <button data-act="prev-day" aria-label="Previous day">‹</button>
+        <div class="day-label" id="dayLabel"></div>
+        <button data-act="next-day" aria-label="Next day">›</button>
+      </div>
+      <button class="icon-btn" data-act="jump-today" title="Jump to today">•</button>
+    </div>
+    <div class="ledger-score">
+      <span class="val num" id="scoreVal">0.0</span>
+      <span class="max num">/ 100</span>
+      <span class="lbl" id="scoreLbl">pts today</span>
+    </div>
+    <div class="gauge"><div class="gauge-fill" id="scoreFill" style="width:0%"></div></div>
+  </div>
+
+  <div class="now-bar" id="nowBar" style="display:none;">
+    <div class="now-bar-info" data-act="nowbar-open">
+      <span class="now-bar-dot" id="nowBarDot"></span>
+      <span class="now-bar-title" id="nowBarTitle"></span>
+    </div>
+    <span class="now-bar-time num" id="nowBarTime">00:00</span>
+    <button class="now-bar-btn" id="nowBarToggle" data-act="nowbar-toggle" title="Pause / resume">❚❚</button>
+  </div>
+
+  <main id="view"></main>
+
+  <nav class="tabs">
+    <button data-view="today" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
+      Today
+    </button>
+    <button data-view="calendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+      Calendar
+    </button>
+    <button data-view="stats">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+      Stats
+    </button>
+    <button data-view="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+      Settings
+    </button>
+  </nav>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   CONFIG / DEFAULTS  (domain constants)
+   ============================================================ */
+var DEFAULT_CATEGORIES = [
+  {key:'routine',       label:'Daily Routine',            color:'#4FD8C4'},
+  {key:'hygiene',       label:'Hygiene & Self-care',      color:'#5AC8FA'},
+  {key:'meals',         label:'Meals & Food',             color:'#E4934E'},
+  {key:'sleep',         label:'Sleep & Rest',             color:'#8A90A0'},
+  {key:'health',        label:'Health & Wellness',        color:'#6FCF97'},
+  {key:'exercise',      label:'Exercise & Movement',      color:'#4ADE80'},
+  {key:'commute',       label:'Commute & Travel',         color:'#D9C08A'},
+  {key:'work',          label:'Work & Career',            color:'#7AA7E8'},
+  {key:'focus',         label:'Deep Work / Study',        color:'#38BDF8'},
+  {key:'learn',         label:'Learning & Growth',        color:'#9B8CF2'},
+  {key:'household',     label:'Household & Chores',       color:'#C98A5E'},
+  {key:'errands',       label:'Errands & Shopping',       color:'#F2C94C'},
+  {key:'finance',       label:'Finance & Admin',          color:'#D9C08A'},
+  {key:'family',        label:'Family & Kids',            color:'#E88AA6'},
+  {key:'pets',          label:'Pet Care',                 color:'#FDBA74'},
+  {key:'social',        label:'Social & Relationships',   color:'#F472B6'},
+  {key:'digital',       label:'Digital & Screen Time',    color:'#7AA7E8'},
+  {key:'mindful',       label:'Mindfulness & Spiritual',  color:'#BB86FC'},
+  {key:'hobbies',       label:'Hobbies & Creativity',     color:'#E2635A'},
+  {key:'entertainment', label:'Entertainment & Leisure',  color:'#FB7185'},
+  {key:'admin',         label:'Admin & Planning',         color:'#A78BFA'},
+  {key:'personal',      label:'Personal Time',            color:'#2DD4BF'}
+];
+var SWATCHES = ['#4FD8C4','#5AC8FA','#38BDF8','#7AA7E8','#9B8CF2','#BB86FC','#A78BFA','#E88AA6','#F472B6','#FB7185','#E2635A','#E4934E','#FDBA74','#F2C94C','#D9C08A','#C98A5E','#6FCF97','#4ADE80','#2DD4BF','#8A90A0'];
+var PRESET_MINUTES = [15,20,25,30,36,45,60,90];
+var TASKS_KEY = 'ledger_tasks_v1';
+var SETTINGS_KEY = 'ledger_settings_v1';
+var DAILY_SCORES_KEY = 'ledger_daily_scores_v1';
+var CATALOG_VERSION = 2;          // bump when DEFAULT_CATEGORIES gains new entries, to merge them into existing saves
+var DAY_START_HOURS = 6.5;        // the logical day begins at 6:30 AM
+
+/* Quick-pick activities per category: [title, suggested minutes].
+   Shown as tappable chips in the task editor so common chores/routines
+   can be added without typing. "_default" is used for any custom
+   category the user creates that isn't in this map. */
+var PRESET_ACTIVITIES = {
+  routine: [
+    ['Wake up & stretch',10],['Make the bed',5],['Plan the day',10],['Brush teeth (morning)',5],
+    ['Shower',15],['Get dressed',10],['Breakfast',20],['Pack bag for the day',5],
+    ['Commute to work/school',30],['Lunch break',30],['Commute home',30],['Evening tidy-up',10],
+    ['Dinner',30],['Brush teeth (night)',5],['Night skincare routine',10],['Wind down / read before bed',20]
+  ],
+  hygiene: [
+    ['Shower',15],['Bath',20],['Brush teeth',5],['Floss',3],['Mouthwash',2],['Wash face',5],
+    ['Shave',10],['Toilet / restroom break',5],['Hair wash',10],['Hair styling / blow-dry',10],
+    ['Skincare — morning',10],['Skincare — night',10],['Nail care / trim nails',10],
+    ['Apply sunscreen',3],['Deodorant & grooming',3],['Change into fresh clothes',5]
+  ],
+  meals: [
+    ['Breakfast',20],['Brunch',30],['Lunch',30],['Dinner',30],['Snack',10],
+    ['Meal prep for the week',60],['Cook dinner',30],['Pack lunch',10],['Grocery shopping',45],
+    ['Drink water / hydration check',2],['Take vitamins / supplements',2],['Wash dishes',15],
+    ['Plan meals for the week',15]
+  ],
+  sleep: [
+    ['Night\'s sleep',480],['Nap',30],['Afternoon rest',20],['Wind-down routine',15],
+    ['No-screens wind down',20],['Set alarm for tomorrow',2]
+  ],
+  health: [
+    ['Doctor\'s appointment',60],['Dentist appointment',45],['Take medication',2],
+    ['Therapy / counseling session',50],['Stretch / mobility work',10],
+    ['Weigh-in / track health metrics',5],['Pharmacy pickup',15],['Mental health check-in',10],
+    ['Eye rest / screen break',5],['Health insurance / paperwork',15]
+  ],
+  exercise: [
+    ['Morning run',30],['Gym / strength training',60],['Yoga session',30],['Cycling',45],
+    ['Walk',30],['Swim',45],['HIIT workout',25],['Stretch & cool down',10],
+    ['Sports practice / game',60],['Home workout',20]
+  ],
+  commute: [
+    ['Commute to work',30],['Commute home',30],['Drive kids to school',20],['School pickup',20],
+    ['Walk to station',10],['Public transit commute',30],['Flight / travel day',240],
+    ['Refuel the car',10],['Car wash',20],['Car maintenance check',30]
+  ],
+  work: [
+    ['Check & respond to emails',20],['Team stand-up meeting',15],['1:1 meeting',30],
+    ['Project work block',60],['Client call',30],['Weekly planning',20],
+    ['Prepare presentation',45],['Review & approve tasks',15],['Performance review prep',30],
+    ['End-of-day wrap-up',10]
+  ],
+  focus: [
+    ['Deep work block',60],['Study session',45],['Reading — professional/technical',30],
+    ['Writing session',45],['Research',45],['Coding session',60],['Exam prep',60],
+    ['Practice problems',30]
+  ],
+  learn: [
+    ['Online course lesson',30],['Read a book',30],['Language practice',20],
+    ['Watch educational video',20],['Listen to a podcast',30],['Practice a new skill',30],
+    ['Review notes / flashcards',15],['Tutorial / workshop',60]
+  ],
+  household: [
+    ['Wash dishes',15],['Laundry — wash & fold',30],['Vacuuming',20],['Sweep / mop floors',20],
+    ['Dust surfaces',15],['Clean bathroom',25],['Clean kitchen',20],['Make the bed',5],
+    ['Take out the trash',5],['Water the plants',5],['Organize / declutter',30],
+    ['Change bedsheets',10],['Iron clothes',15],['Yard work / gardening',45],['Home repairs / DIY',60]
+  ],
+  errands: [
+    ['Grocery shopping',45],['Pharmacy run',15],['Post office',20],['Bank errand',20],
+    ['Dry cleaning drop-off/pickup',15],['Return / exchange item',20],['Car service drop-off',15],
+    ['Shopping — clothes/household',45]
+  ],
+  finance: [
+    ['Pay bills',15],['Budget review',20],['Check bank statements',10],['File taxes / tax prep',60],
+    ['Investment review',20],['Expense tracking',10],['Financial planning',30]
+  ],
+  family: [
+    ['Family dinner',30],['Help with homework',30],['Playtime with kids',30],
+    ['School pickup/drop-off',20],['Bedtime routine with kids',20],['Family outing',90],
+    ['Call parents / family',20],['Plan family event',30]
+  ],
+  pets: [
+    ['Walk the dog',20],['Feed pets',5],['Clean litter box / cage',10],['Vet appointment',45],
+    ['Pet grooming',30],['Playtime with pet',15]
+  ],
+  social: [
+    ['Call a friend',20],['Coffee with a friend',45],['Dinner with friends',90],
+    ['Attend social event',90],['Date night',90],['Reply to messages',10],['Plan a get-together',15]
+  ],
+  digital: [
+    ['Check social media',10],['Inbox zero',15],['Watch TV / streaming',45],['Gaming session',45],
+    ['Scroll news',10],['Digital detox break',30]
+  ],
+  mindful: [
+    ['Meditation',10],['Prayer',10],['Journaling',15],['Gratitude practice',5],
+    ['Breathing exercise',5],['Attend religious service',60],['Reflection / quiet time',15]
+  ],
+  hobbies: [
+    ['Reading for pleasure',30],['Painting / drawing',45],['Playing an instrument',30],
+    ['Photography',45],['Writing for fun',30],['Crafting / DIY project',45],
+    ['Gardening as a hobby',30],['Cooking/baking for fun',45]
+  ],
+  entertainment: [
+    ['Watch a movie',120],['Watch an episode',30],['Video games',45],['Listen to music',20],
+    ['Go to the cinema',150],['Concert / live show',120]
+  ],
+  admin: [
+    ['Plan the week',20],['Review calendar',10],['Inbox / paperwork',20],
+    ['Renew subscriptions / documents',15],['Schedule appointments',10],
+    ['Organize files/documents',20],['To-do list review',10]
+  ],
+  personal: [
+    ['Personal reflection',15],['Me-time / relax',30],['Skincare / self-pampering',20],
+    ['Personal project time',45],['Solo walk',20],['Journaling',15]
+  ],
+  _default: [
+    ['Quick task',25],['Focus block',30],['Break',10],['Planning',15],['Call',20],
+    ['Errand',30],['Custom activity',25]
+  ]
+};
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+function uid(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'id-'+Date.now()+'-'+Math.random().toString(16).slice(2);
+}
+function pad2(n){ return (n<10?'0':'')+n; }
+function isoDate(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function parseISO(s){ var p=s.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+/* The "logical" day runs 6:30 AM → 6:29:59 AM the next morning, not midnight.
+   A moment before 6:30 AM still belongs to the previous logical day. */
+function logicalDateISO(d){
+  d = d || new Date();
+  var shifted = new Date(d.getTime() - DAY_START_HOURS*3600*1000);
+  return isoDate(shifted);
+}
+function todayISO(){ return logicalDateISO(new Date()); }
+function addDays(iso, n){ var d=parseISO(iso); d.setDate(d.getDate()+n); return isoDate(d); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function esc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function fmtMinutesShort(mins){
+  mins = Math.round(mins);
+  if(mins < 60) return mins+'m';
+  var h = Math.floor(mins/60), m = mins%60;
+  return m===0 ? h+'h' : h+'h '+m+'m';
+}
+function fmtClock(totalSeconds){
+  totalSeconds = Math.max(0, Math.round(totalSeconds));
+  var h = Math.floor(totalSeconds/3600);
+  var m = Math.floor((totalSeconds%3600)/60);
+  var s = totalSeconds%60;
+  if(h>0) return h+':'+pad2(m)+':'+pad2(s);
+  return pad2(m)+':'+pad2(s);
+}
+function dayLabelFor(iso){
+  var d = parseISO(iso);
+  var t = todayISO();
+  var wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+  var md = d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  if(iso===t) return {main:'Today', sub:wd+', '+md};
+  if(iso===addDays(t,-1)) return {main:'Yesterday', sub:wd+', '+md};
+  if(iso===addDays(t,1)) return {main:'Tomorrow', sub:wd+', '+md};
+  return {main:wd+', '+md, sub:''};
+}
+function beep(){
+  try{
+    var Ctx = window.AudioContext||window.webkitAudioContext;
+    var ctx = new Ctx();
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type='sine'; o.frequency.value=880;
+    o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.7);
+    o.start(); o.stop(ctx.currentTime+0.75);
+  }catch(e){}
+}
+
+/* ============================================================
+   DATA LAYER  (persistence)
+   ============================================================ */
+var Store = {
+  loadTasks: function(){
+    try{ return JSON.parse(localStorage.getItem(TASKS_KEY)) || []; }catch(e){ return []; }
+  },
+  saveTasks: function(tasks){
+    try{ localStorage.setItem(TASKS_KEY, JSON.stringify(tasks)); }catch(e){}
+  },
+  loadSettings: function(){
+    var s = null;
+    try{ s = JSON.parse(localStorage.getItem(SETTINGS_KEY)); }catch(e){}
+    if(!s) s = {};
+    if(!s.divisorMinutes) s.divisorMinutes = 3600;
+    if(!s.categories || !s.categories.length) s.categories = DEFAULT_CATEGORIES.slice();
+    // merge in any newly-added default categories the user doesn't already have
+    // (keeps user's own custom categories and edits intact)
+    if(!s.catalogVersion || s.catalogVersion < CATALOG_VERSION){
+      var existingKeys = {};
+      s.categories.forEach(function(c){ existingKeys[c.key]=true; });
+      DEFAULT_CATEGORIES.forEach(function(c){
+        if(!existingKeys[c.key]) s.categories.push(c);
+      });
+      s.catalogVersion = CATALOG_VERSION;
+    }
+    return s;
+  },
+  saveSettings: function(s){
+    try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }catch(e){}
+  },
+  loadDailyScores: function(){
+    try{ return JSON.parse(localStorage.getItem(DAILY_SCORES_KEY)) || {}; }catch(e){ return {}; }
+  },
+  saveDailyScores: function(scores){
+    try{ localStorage.setItem(DAILY_SCORES_KEY, JSON.stringify(scores)); }catch(e){}
+  }
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+var state = {
+  tasks: Store.loadTasks(),
+  settings: Store.loadSettings(),
+  dailyScores: Store.loadDailyScores(),   // {iso: finalizedPoints} for days that have ended (locked in)
+  view: 'today',
+  selectedDate: todayISO(),
+  calMonth: new Date().getFullYear()+'-'+pad2(new Date().getMonth()+1),
+  daySheetDate: null,
+  focusTaskId: null,
+  editingTaskId: undefined,      // undefined = no modal, null = new task, id = editing
+  logTaskId: null,               // task id currently in "log actual time" popover
+  _cachedToday: todayISO()       // used to detect when the 6:30 AM day boundary rolls over
+};
+
+function persist(){ Store.saveTasks(state.tasks); Store.saveSettings(state.settings); Store.saveDailyScores(state.dailyScores); }
+function getTask(id){ for(var i=0;i<state.tasks.length;i++) if(state.tasks[i].id===id) return state.tasks[i]; return null; }
+function catOf(key){
+  for(var i=0;i<state.settings.categories.length;i++) if(state.settings.categories[i].key===key) return state.settings.categories[i];
+  return {key:key,label:key,color:'#8A90A0'};
+}
+
+/* ============================================================
+   DOMAIN LOGIC — points & timer math
+   ============================================================ */
+function plannedSeconds(task){ return task.plannedMinutes*60; }
+function liveActualSeconds(task){
+  var base = task.actualSeconds||0;
+  if(task.timerState==='running' && task.runningSince){
+    base += (Date.now()-task.runningSince)/1000;
+  }
+  return base;
+}
+function taskPoints(task){
+  var eff = Math.min(liveActualSeconds(task), plannedSeconds(task));
+  var divisorSeconds = (state.settings.divisorMinutes||3600)*60;
+  if(divisorSeconds<=0) return 0;
+  return eff/divisorSeconds*100;
+}
+function tasksForDate(iso){
+  return state.tasks.filter(function(t){ return t.date===iso; });
+}
+function computeLivePoints(iso){
+  return tasksForDate(iso).reduce(function(sum,t){ return sum+taskPoints(t); }, 0);
+}
+/* A day that has already ended (before the current 6:30 AM logical day)
+   returns its locked-in final score once calculated; today (and any day
+   still in progress) is always computed live. */
+function pointsForDate(iso){
+  if(state.dailyScores && state.dailyScores[iso]!==undefined) return state.dailyScores[iso];
+  return computeLivePoints(iso);
+}
+function isDayFinalized(iso){
+  return !!(state.dailyScores && state.dailyScores[iso]!==undefined);
+}
+function maxPointsForFullDay(){
+  return (1440/(state.settings.divisorMinutes||3600))*100;
+}
+/* Calculates and locks in the total score for every past day (before today's
+   6:30 AM boundary) that hasn't been finalized yet. Runs on every render, so
+   a day's score is captured the first time the app is used after it ends —
+   even if the app wasn't open at the exact rollover moment. */
+function finalizeElapsedDays(){
+  var t = todayISO();
+  var changed = false;
+  if(!state.dailyScores) state.dailyScores = {};
+  var pastDates = {};
+  state.tasks.forEach(function(task){
+    if(task.date && task.date < t && state.dailyScores[task.date]===undefined){
+      pastDates[task.date] = true;
+    }
+  });
+  Object.keys(pastDates).forEach(function(iso){
+    state.dailyScores[iso] = computeLivePoints(iso);
+    changed = true;
+  });
+  if(changed) Store.saveDailyScores(state.dailyScores);
+  return changed;
+}
+
+/* ============================================================
+   TIMER ENGINE
+   ============================================================ */
+function anyRunningTask(){
+  for(var i=0;i<state.tasks.length;i++) if(state.tasks[i].timerState==='running') return state.tasks[i];
+  return null;
+}
+function anyActiveTimerTask(){
+  for(var i=0;i<state.tasks.length;i++){
+    var ts = state.tasks[i].timerState;
+    if(ts==='running'||ts==='paused') return state.tasks[i];
+  }
+  return null;
+}
+function startTimer(taskId){
+  var running = anyRunningTask();
+  if(running && running.id!==taskId) pauseTimer(running.id);
+  var t = getTask(taskId);
+  if(!t) return;
+  if(t.status==='done') { t.status='in-progress'; }
+  t.timerState = 'running';
+  t.runningSince = Date.now();
+  persist(); render();
+}
+function pauseTimer(taskId){
+  var t = getTask(taskId);
+  if(!t || t.timerState!=='running') return;
+  t.actualSeconds = liveActualSeconds(t);
+  t.timerState = 'paused';
+  t.runningSince = null;
+  persist(); render();
+}
+function stopTimer(taskId, opts){
+  opts = opts||{};
+  var t = getTask(taskId);
+  if(!t) return;
+  t.actualSeconds = liveActualSeconds(t);
+  t.timerState = 'idle';
+  t.runningSince = null;
+  if(opts.complete || t.actualSeconds >= plannedSeconds(t)-0.5){
+    t.status = 'done';
+    t.actualSeconds = Math.min(t.actualSeconds, plannedSeconds(t));
+  } else if(t.actualSeconds>0){
+    t.status = 'in-progress';
+  }
+  persist(); render();
+}
+function tick(){
+  var newToday = todayISO();
+  if(newToday !== state._cachedToday){
+    state._cachedToday = newToday;
+    render();   // day rolled over 6:30 AM boundary — refresh labels & lock in the finished day's score
+  }
+  var t = anyRunningTask();
+  if(!t) return;
+  var remaining = plannedSeconds(t) - liveActualSeconds(t);
+  if(remaining<=0){
+    t.actualSeconds = plannedSeconds(t);
+    t.timerState = 'idle';
+    t.runningSince = null;
+    t.status = 'done';
+    persist();
+    beep();
+    showToast('Focus session complete — nice work.');
+    render();
+    return;
+  }
+  // live-update DOM without a full re-render for smoothness
+  updateLiveNumbers();
+  if(state.focusTaskId===t.id) updateFocusOverlay(t);
+}
+setInterval(tick, 1000);
+// persist running timer periodically so a refresh doesn't lose progress
+setInterval(function(){ if(anyRunningTask()) persist(); }, 8000);
+
+/* ============================================================
+   TOASTS
+   ============================================================ */
+function showToast(msg){
+  var app = document.getElementById('app');
+  var el = document.createElement('div');
+  el.className='toast';
+  el.textContent = msg;
+  app.appendChild(el);
+  setTimeout(function(){ el.remove(); }, 2600);
+}
+
+/* ============================================================
+   RENDER — root dispatch
+   ============================================================ */
+function render(){
+  finalizeElapsedDays();
+  renderLedgerHeader();
+  renderNowBar();
+  var view = document.getElementById('view');
+  if(state.view==='today') view.innerHTML = renderToday();
+  else if(state.view==='calendar') view.innerHTML = renderCalendar();
+  else if(state.view==='stats') view.innerHTML = renderStats();
+  else if(state.view==='settings') view.innerHTML = renderSettings();
+
+  document.querySelectorAll('nav.tabs button').forEach(function(b){
+    b.classList.toggle('active', b.dataset.view===state.view);
+  });
+  renderOverlays();
+}
+
+function renderLedgerHeader(){
+  var lbl = dayLabelFor(state.selectedDate);
+  document.getElementById('dayLabel').innerHTML =
+    lbl.main + (lbl.sub ? ' <small>· '+lbl.sub+'</small>' : '');
+  var pts = pointsForDate(state.selectedDate);
+  document.getElementById('scoreVal').textContent = pts.toFixed(1);
+  var pct = clamp(pts,0,100);
+  var fill = document.getElementById('scoreFill');
+  fill.style.width = pct+'%';
+  fill.classList.toggle('over', pts>100);
+  var lblEl = document.getElementById('scoreLbl');
+  if(lblEl) lblEl.textContent = isDayFinalized(state.selectedDate) ? 'pts · day final' : 'pts today';
+}
+
+/* The now-bar sits just under the ledger header and is visible on every tab
+   whenever a timer is running or paused, so the countdown and points are
+   always in view without having to open the focus overlay. */
+function renderNowBar(){
+  var bar = document.getElementById('nowBar');
+  if(!bar) return;
+  var t = anyActiveTimerTask();
+  if(!t){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  bar.dataset.id = t.id;
+  var cat = catOf(t.category);
+  document.getElementById('nowBarDot').style.background = cat.color;
+  document.getElementById('nowBarTitle').textContent = t.title;
+  var remaining = plannedSeconds(t) - liveActualSeconds(t);
+  document.getElementById('nowBarTime').textContent = fmtClock(Math.max(0,remaining));
+  var toggle = document.getElementById('nowBarToggle');
+  toggle.textContent = t.timerState==='running' ? '❚❚' : '▶';
+  bar.classList.toggle('paused', t.timerState==='paused');
+}
+
+function updateLiveNumbers(){
+  // cheap live refresh of points + now-bar, without full re-render (avoids input focus loss).
+  // These run on every tab; the task-row lookups below only apply on the Today view.
+  renderLedgerHeader();
+  renderNowBar();
+  var t = anyRunningTask();
+  if(!t) return;
+  if(state.view!=='today') return;
+  var row = document.querySelector('.task-row[data-id="'+t.id+'"] .pts');
+  if(row) row.textContent = taskPoints(t).toFixed(2)+' pts';
+  var bar = document.querySelector('.task-row[data-id="'+t.id+'"] .mini-bar i');
+  if(bar) bar.style.width = clamp(liveActualSeconds(t)/plannedSeconds(t)*100,0,100)+'%';
+  var remainEl = document.getElementById('remain-'+t.id);
+  if(remainEl) remainEl.textContent = fmtClock(Math.max(0, plannedSeconds(t)-liveActualSeconds(t)))+' left';
+}
+
+/* ============================================================
+   RENDER — TODAY VIEW
+   ============================================================ */
+function renderToday(){
+  var list = tasksForDate(state.selectedDate).slice().sort(function(a,b){
+    return (a.createdAt||0)-(b.createdAt||0);
+  });
+  var html = '<div class="view-head"><h2>Tasks</h2>'+
+    '<button class="add-btn" data-act="new-task">+ Add task</button></div>';
+
+  if(list.length===0){
+    html += '<div class="empty-state">No tasks logged for '+ (state.selectedDate===todayISO()?'today':'this day') +' yet.'+
+      '<div><button class="add-btn" data-act="new-task" style="margin-top:10px;">+ Add task</button></div></div>';
+    return html;
+  }
+
+  html += '<div class="task-list">';
+  list.forEach(function(t){
+    var cat = catOf(t.category);
+    var pts = taskPoints(t);
+    var actualSec = liveActualSeconds(t);
+    var frac = clamp(actualSec/plannedSeconds(t)*100,0,100);
+    var over = actualSec > plannedSeconds(t)+0.5;
+    var isRunning = t.timerState==='running';
+    var isPaused = t.timerState==='paused';
+    var rowClasses = 'task-row'+(t.status==='done'?' done':'')+(isRunning?' active':'');
+    html += '<div class="'+rowClasses+'" data-id="'+t.id+'">';
+    html += '  <div class="task-top">';
+    html += '    <span class="cat-dot" style="background:'+cat.color+'"></span>';
+    html += '    <span class="task-title" data-act="log-time" data-id="'+t.id+'">'+esc(t.title)+'</span>';
+    html += '    <div class="task-actions">';
+    if(t.status!=='done'){
+      html += '<button class="play-btn'+(isRunning?' pause':'')+'" data-act="'+(isRunning?'pause-timer':'start-timer')+'" data-id="'+t.id+'" title="'+(isRunning?'Pause':'Start focus timer')+'">'+(isRunning?'❚❚':'▶')+'</button>';
+    }
+    html += '      <button class="menu-btn" data-act="edit-task" data-id="'+t.id+'" title="Edit">⋯</button>';
+    html += '    </div>';
+    html += '  </div>';
+    html += '  <div class="task-meta">';
+    html += '    <span class="left">'+esc(cat.label)+' · planned '+fmtMinutesShort(t.plannedMinutes)+
+            (t.status!=='done' ? ' · logged '+fmtMinutesShort(actualSec/60) : ' · done')+
+            (isPaused?' · paused':'')+'</span>';
+    html += '    <div class="task-meta-right">';
+    if((isRunning||isPaused) && t.status!=='done'){
+      var remainSec = Math.max(0, plannedSeconds(t)-actualSec);
+      html += '<span class="timer-remain num'+(isPaused?' paused':'')+'" id="remain-'+t.id+'">'+fmtClock(remainSec)+' left</span>';
+    }
+    html += '<span class="pts num'+(pts<0.05?' zero':'')+'">'+pts.toFixed(2)+' pts</span>';
+    html += '    </div>';
+    html += '  </div>';
+    html += '  <div class="mini-bar"><i class="'+(over?'over':'')+'" style="width:'+frac+'%"></i></div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+/* ============================================================
+   RENDER — CALENDAR VIEW
+   ============================================================ */
+function renderCalendar(){
+  var parts = state.calMonth.split('-');
+  var year = +parts[0], month = +parts[1]; // 1-12
+  var first = new Date(year, month-1, 1);
+  var startWeekday = first.getDay(); // 0=Sun
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var monthLabel = first.toLocaleDateString(undefined,{month:'long', year:'numeric'});
+
+  var html = '<div class="cal-nav">'+
+    '<button class="icon-btn" data-act="cal-prev">‹</button>'+
+    '<span class="month">'+monthLabel+'</span>'+
+    '<button class="icon-btn" data-act="cal-next">›</button>'+
+    '</div>';
+
+  html += '<div class="cal-grid"><div class="cal-dow">';
+  ['S','M','T','W','T','F','S'].forEach(function(d){ html+='<span>'+d+'</span>'; });
+  html += '</div><div class="cal-days">';
+
+  for(var i=0;i<startWeekday;i++) html += '<div class="cal-cell empty"></div>';
+
+  var t = todayISO();
+  for(var day=1; day<=daysInMonth; day++){
+    var iso = year+'-'+pad2(month)+'-'+pad2(day);
+    var pts = pointsForDate(iso);
+    var isToday = iso===t;
+    var has = pts>0.04;
+    html += '<div class="cal-cell'+(isToday?' today':'')+(has?' haspts':'')+'" data-act="open-day" data-date="'+iso+'">'+
+      '<span class="d">'+day+'</span>'+
+      (has? '<span class="p">'+pts.toFixed(1)+'</span>' : '<span class="p">–</span>')+
+      '</div>';
+  }
+  html += '</div></div>';
+
+  html += '<div class="stat-panel" style="margin-top:6px;">'+
+    '<h3>This month</h3>'+
+    '<div class="stat-row"><span class="k">Days logged</span><span class="v">'+countLoggedDaysInMonth(year,month)+' / '+daysInMonth+'</span></div>'+
+    '<div class="stat-row"><span class="k">Average pts/day</span><span class="v">'+avgPointsInMonth(year,month).toFixed(1)+'</span></div>'+
+    '</div>';
+
+  return html;
+}
+function countLoggedDaysInMonth(year,month){
+  var n=0, days=new Date(year,month,0).getDate();
+  for(var d=1; d<=days; d++){ if(pointsForDate(year+'-'+pad2(month)+'-'+pad2(d))>0.04) n++; }
+  return n;
+}
+function avgPointsInMonth(year,month){
+  var days=new Date(year,month,0).getDate(), sum=0;
+  for(var d=1; d<=days; d++){ sum += pointsForDate(year+'-'+pad2(month)+'-'+pad2(d)); }
+  return sum/days;
+}
+
+/* ============================================================
+   RENDER — STATS VIEW
+   ============================================================ */
+function renderStats(){
+  var days = [];
+  for(var i=6;i>=0;i--) days.push(addDays(todayISO(),-i));
+  var pointsArr = days.map(pointsForDate);
+  var maxScale = Math.max(100, Math.max.apply(null, pointsArr));
+
+  var html = '<div class="view-head"><h2>Last 7 days</h2></div>';
+  html += '<div class="stat-panel"><div class="bars">';
+  days.forEach(function(iso,idx){
+    var p = pointsArr[idx];
+    var h = clamp(p/maxScale*100, 2, 100);
+    var wd = parseISO(iso).toLocaleDateString(undefined,{weekday:'narrow'});
+    html += '<div class="bar-col"><span class="val num">'+p.toFixed(0)+'</span>'+
+      '<div class="track"><div class="fill" style="height:'+h+'%"></div></div>'+
+      '<span class="lbl">'+wd+'</span></div>';
+  });
+  html += '</div></div>';
+
+  var streak = computeStreak();
+  var avg7 = pointsArr.reduce(function(a,b){return a+b;},0)/7;
+  html += '<div class="stat-panel">'+
+    '<div class="stat-row"><span class="k">Current streak</span><span class="v">'+streak+' day'+(streak===1?'':'s')+'</span></div>'+
+    '<div class="stat-row"><span class="k">7-day average</span><span class="v">'+avg7.toFixed(1)+' pts</span></div>'+
+    '<div class="stat-row"><span class="k">Total tasks logged</span><span class="v">'+state.tasks.length+'</span></div>'+
+    '</div>';
+  return html;
+}
+function computeStreak(){
+  var streak=0, iso=todayISO();
+  while(pointsForDate(iso)>0.04){ streak++; iso=addDays(iso,-1); }
+  return streak;
+}
+
+/* ============================================================
+   RENDER — SETTINGS VIEW
+   ============================================================ */
+function renderSettings(){
+  var s = state.settings;
+  var maxDay = maxPointsForFullDay();
+  var html = '<div class="view-head"><h2>Settings</h2></div><div style="padding:0 20px;">';
+
+  html += '<div class="field"><label>Day boundary</label>'+
+    '<div class="hint">Your day runs from <b>6:30 AM</b> to <b>6:29 AM</b> the next morning — anything logged in the early hours still counts toward the previous day. Once a day ends, its total score is calculated and locked in as final.</div></div>';
+
+  html += '<div class="field"><label>Points divisor (minutes = 100 pts)</label>'+
+    '<input type="number" id="divisorInput" min="1" value="'+s.divisorMinutes+'">'+
+    '<div class="hint">A fully scheduled 24-hour day (1440 min) tops out at <b class="num">'+maxDay.toFixed(1)+'</b> pts at this setting. Lower the divisor toward 1440 if you want a full day to reach closer to 100.</div></div>';
+
+  html += '<div class="field"><label>Categories</label><div class="cat-list" id="catList">';
+  s.categories.forEach(function(c){
+    html += '<div class="cat-item"><span class="cat-dot" style="background:'+c.color+'"></span>'+
+      '<span class="name">'+esc(c.label)+'</span>'+
+      '<button data-act="del-cat" data-key="'+c.key+'" title="Remove">×</button></div>';
+  });
+  html += '</div>'+
+    '<input type="text" id="newCatName" placeholder="New category name">'+
+    '<div class="swatches" id="newCatSwatches">'+
+    SWATCHES.map(function(c,i){ return '<span class="swatch'+(i===0?' sel':'')+'" style="background:'+c+'" data-color="'+c+'"></span>'; }).join('')+
+    '</div>'+
+    '<button class="btn" style="margin-top:10px;" data-act="add-cat">Add category</button>'+
+    '</div>';
+
+  html += '<div class="field"><label>Backup</label><div class="btn-row">'+
+    '<button class="btn" data-act="export-data">Export JSON</button>'+
+    '<button class="btn" data-act="import-data">Import JSON</button>'+
+    '</div></div>';
+
+  html += '<div class="field"><button class="btn danger" data-act="reset-data">Reset all data</button></div>';
+  html += '</div>';
+  return html;
+}
+
+/* ============================================================
+   OVERLAYS: task modal / log-time popover / day sheet / focus
+   ============================================================ */
+function renderOverlays(){
+  var app = document.getElementById('app');
+  var existing = app.querySelectorAll('.scrim, .focus-overlay');
+  existing.forEach(function(e){ e.remove(); });
+
+  if(state.editingTaskId!==undefined) app.appendChild(buildTaskModal());
+  if(state.logTaskId) app.appendChild(buildLogPopover());
+  if(state.daySheetDate) app.appendChild(buildDaySheet());
+  if(state.focusTaskId){
+    var t = getTask(state.focusTaskId);
+    if(t) app.appendChild(buildFocusOverlay(t));
+    else state.focusTaskId = null;
+  }
+}
+
+function renderQuickPicks(catKey){
+  var list = PRESET_ACTIVITIES[catKey] || PRESET_ACTIVITIES._default;
+  return list.map(function(item){
+    return '<span class="chip qp" data-act="pick-activity" data-title="'+esc(item[0])+'" data-min="'+item[1]+'">'+esc(item[0])+'</span>';
+  }).join('');
+}
+
+function buildTaskModal(){
+  var isNew = state.editingTaskId===null;
+  var t = isNew ? {title:'',category:state.settings.categories[0].key,plannedMinutes:25,date:state.selectedDate} : getTask(state.editingTaskId);
+  var wrap = document.createElement('div');
+  wrap.className='scrim';
+  wrap.dataset.act='close-modal-scrim';
+  var cats = state.settings.categories.map(function(c){
+    return '<span class="chip cat'+(c.key===t.category?' sel':'')+'" data-act="pick-cat" data-key="'+c.key+'">'+
+      '<span class="cat-dot" style="background:'+c.color+'"></span>'+esc(c.label)+'</span>';
+  }).join('');
+  var presets = PRESET_MINUTES.map(function(m){
+    return '<span class="chip'+(m===t.plannedMinutes?' sel':'')+'" data-act="pick-min" data-min="'+m+'">'+m+'m</span>';
+  }).join('');
+  wrap.innerHTML =
+    '<div class="sheet" data-stop="1">'+
+      '<div class="sheet-head"><h3>'+(isNew?'New task':'Edit task')+'</h3><button data-act="close-modal">×</button></div>'+
+      '<div class="field"><label>Title</label><input type="text" id="fTitle" value="'+esc(t.title)+'" placeholder="e.g. Read: Deep Work"></div>'+
+      '<div class="field"><label>Category</label><div class="chip-row" id="fCats">'+cats+'</div></div>'+
+      '<div class="field"><label>Quick pick <span class="field-hint-inline">— tap to fill title &amp; duration</span></label>'+
+        '<div class="chip-row scroll" id="fQuickPicks">'+renderQuickPicks(t.category)+'</div></div>'+
+      '<div class="field"><label>Date</label><input type="text" id="fDate" value="'+t.date+'" placeholder="YYYY-MM-DD"></div>'+
+      '<div class="field"><label>Planned duration (minutes)</label>'+
+        '<input type="number" id="fMinutes" min="1" value="'+t.plannedMinutes+'">'+
+        '<div class="chip-row" id="fPresets">'+presets+'</div>'+
+        '<div class="hint" id="fMinutesHint">= '+fmtMinutesShort(t.plannedMinutes)+'</div></div>'+
+      '<div class="btn-row" style="margin-top:6px;">'+
+        (isNew?'' : '<button class="btn danger" data-act="delete-task" data-id="'+t.id+'">Delete</button>')+
+        '<button class="btn primary" data-act="save-task" data-id="'+(isNew?'':t.id)+'">Save</button>'+
+      '</div>'+
+    '</div>';
+  return wrap;
+}
+
+function buildLogPopover(){
+  var t = getTask(state.logTaskId);
+  var wrap = document.createElement('div');
+  wrap.className='scrim';
+  wrap.dataset.act='close-log-scrim';
+  if(!t) return wrap;
+  var curMin = Math.round(liveActualSeconds(t)/60);
+  wrap.innerHTML =
+    '<div class="sheet" data-stop="1">'+
+      '<div class="sheet-head"><h3>Log actual time</h3><button data-act="close-log">×</button></div>'+
+      '<div class="hint" style="margin-bottom:12px;">'+esc(t.title)+' — planned '+fmtMinutesShort(t.plannedMinutes)+'</div>'+
+      '<div class="field"><label>Actual minutes spent</label>'+
+        '<input type="number" id="fActual" min="0" value="'+curMin+'"></div>'+
+      '<div class="btn-row">'+
+        '<button class="btn" data-act="log-as-planned" data-id="'+t.id+'">Mark as planned</button>'+
+        '<button class="btn primary" data-act="save-log" data-id="'+t.id+'">Save</button>'+
+      '</div>'+
+    '</div>';
+  return wrap;
+}
+
+function buildDaySheet(){
+  var iso = state.daySheetDate;
+  var list = tasksForDate(iso);
+  var pts = pointsForDate(iso);
+  var wrap = document.createElement('div');
+  wrap.className='scrim';
+  wrap.dataset.act='close-day-scrim';
+  var rows = list.length===0
+    ? '<div class="empty-state">No tasks on this day.</div>'
+    : list.map(function(t){
+        var cat = catOf(t.category);
+        return '<div class="task-row"><div class="task-top">'+
+          '<span class="cat-dot" style="background:'+cat.color+'"></span>'+
+          '<span class="task-title">'+esc(t.title)+'</span>'+
+          '<span class="pts num">'+taskPoints(t).toFixed(2)+'</span>'+
+          '</div><div class="task-meta"><span class="left">'+esc(cat.label)+' · planned '+fmtMinutesShort(t.plannedMinutes)+' · logged '+fmtMinutesShort(liveActualSeconds(t)/60)+'</span></div></div>';
+      }).join('');
+  wrap.innerHTML =
+    '<div class="sheet" data-stop="1">'+
+      '<div class="sheet-head"><h3>'+parseISO(iso).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})+'</h3><button data-act="close-day">×</button></div>'+
+      '<div class="hint" style="margin-bottom:12px;">Total: <b class="num">'+pts.toFixed(1)+'</b> pts'+(isDayFinalized(iso)?' <span class="day-final-tag">· final</span>':'')+'</div>'+
+      '<div class="task-list" style="padding:0;">'+rows+'</div>'+
+      '<button class="btn primary" style="margin-top:14px;" data-act="add-task-to-day" data-date="'+iso+'">+ Add task to this day</button>'+
+    '</div>';
+  return wrap;
+}
+
+function buildFocusOverlay(t){
+  var el = document.createElement('div');
+  el.className='focus-overlay';
+  var cat = catOf(t.category);
+  var remaining = plannedSeconds(t)-liveActualSeconds(t);
+  var frac = clamp(1-(remaining/plannedSeconds(t)),0,1);
+  var circumference = 2*Math.PI*100;
+  var offset = circumference*(1-frac);
+  el.innerHTML =
+    '<div class="focus-top"><button class="close" data-act="focus-close">×</button><span class="cat">'+esc(cat.label)+'</span><span style="width:20px;"></span></div>'+
+    '<div class="focus-mid">'+
+      '<div class="focus-title">'+esc(t.title)+'</div>'+
+      '<div class="ring-wrap">'+
+        '<svg viewBox="0 0 220 220"><circle class="ring-track" cx="110" cy="110" r="100" fill="none" stroke-width="10"/>'+
+        '<circle class="ring-fill" id="ringFill" cx="110" cy="110" r="100" fill="none" stroke-width="10" '+
+        'stroke-dasharray="'+circumference+'" stroke-dashoffset="'+offset+'"/></svg>'+
+        '<div class="ring-time num" id="ringTime">'+fmtClock(Math.max(0,remaining))+'</div>'+
+      '</div>'+
+      '<div class="focus-planned">planned '+fmtMinutesShort(t.plannedMinutes)+'</div>'+
+    '</div>'+
+    '<div class="focus-controls">'+
+      '<button data-act="'+(t.timerState==='running'?'focus-pause':'focus-resume')+'" data-id="'+t.id+'">'+(t.timerState==='running'?'Pause':'Resume')+'</button>'+
+      '<button class="primary" data-act="focus-stop" data-id="'+t.id+'">Stop &amp; save</button>'+
+    '</div>';
+  return el;
+}
+function updateFocusOverlay(t){
+  var ringTime = document.getElementById('ringTime');
+  var ringFill = document.getElementById('ringFill');
+  if(!ringTime||!ringFill) return;
+  var remaining = plannedSeconds(t)-liveActualSeconds(t);
+  ringTime.textContent = fmtClock(Math.max(0,remaining));
+  var frac = clamp(1-(remaining/plannedSeconds(t)),0,1);
+  var circumference = 2*Math.PI*100;
+  ringFill.setAttribute('stroke-dashoffset', circumference*(1-frac));
+}
+
+/* ============================================================
+   EVENT WIRING (delegated)
+   ============================================================ */
+var app = document.getElementById('app');
+
+app.addEventListener('click', function(e){
+  var el = e.target.closest('[data-act]');
+
+  // clicks on the scrim background (not the sheet) close overlays
+  if(e.target.classList && e.target.classList.contains('scrim')){
+    var act = e.target.dataset.act;
+    if(act==='close-modal-scrim') state.editingTaskId=undefined;
+    if(act==='close-log-scrim') state.logTaskId=null;
+    if(act==='close-day-scrim') state.daySheetDate=null;
+    renderOverlays();
+    return;
+  }
+  if(!el) return;
+  var act = el.dataset.act;
+
+  if(act==='new-task'){ state.editingTaskId=null; renderOverlays(); return; }
+  if(act==='edit-task'){ state.editingTaskId=el.dataset.id; renderOverlays(); return; }
+  if(act==='close-modal'){ state.editingTaskId=undefined; renderOverlays(); return; }
+  if(act==='delete-task'){
+    state.tasks = state.tasks.filter(function(t){ return t.id!==el.dataset.id; });
+    state.editingTaskId=undefined; persist(); render(); return;
+  }
+  if(act==='pick-cat'){
+    document.querySelectorAll('#fCats .chip').forEach(function(c){ c.classList.remove('sel'); });
+    el.classList.add('sel');
+    el.dataset.picked='1';
+    var qp = document.getElementById('fQuickPicks');
+    if(qp) qp.innerHTML = renderQuickPicks(el.dataset.key);
+    return;
+  }
+  if(act==='pick-activity'){
+    var titleField = document.getElementById('fTitle');
+    if(titleField) titleField.value = el.dataset.title;
+    if(el.dataset.min){
+      var minField = document.getElementById('fMinutes');
+      if(minField) minField.value = el.dataset.min;
+      var hint2 = document.getElementById('fMinutesHint');
+      if(hint2) hint2.textContent = '= '+fmtMinutesShort(+el.dataset.min);
+      document.querySelectorAll('#fPresets .chip').forEach(function(c){ c.classList.remove('sel'); });
+      var matchPreset = document.querySelector('#fPresets .chip[data-min="'+el.dataset.min+'"]');
+      if(matchPreset) matchPreset.classList.add('sel');
+    }
+    document.querySelectorAll('#fQuickPicks .chip').forEach(function(c){ c.classList.remove('sel'); });
+    el.classList.add('sel');
+    if(titleField) titleField.focus();
+    return;
+  }
+  if(act==='pick-min'){
+    document.getElementById('fMinutes').value = el.dataset.min;
+    document.getElementById('fMinutesHint').textContent = '= '+fmtMinutesShort(+el.dataset.min);
+    document.querySelectorAll('#fPresets .chip').forEach(function(c){ c.classList.remove('sel'); });
+    el.classList.add('sel');
+    return;
+  }
+  if(act==='save-task'){
+    var title = document.getElementById('fTitle').value.trim();
+    if(!title){ document.getElementById('fTitle').focus(); return; }
+    var pickedCat = document.querySelector('#fCats .chip.sel');
+    var category = pickedCat ? pickedCat.dataset.key : state.settings.categories[0].key;
+    var dateVal = document.getElementById('fDate').value.trim() || state.selectedDate;
+    var minutes = Math.max(1, parseInt(document.getElementById('fMinutes').value,10)||25);
+    var id = el.dataset.id;
+    if(id){
+      var t = getTask(id);
+      t.title=title; t.category=category; t.date=dateVal; t.plannedMinutes=minutes;
+    } else {
+      state.tasks.push({
+        id: uid(), title:title, category:category, date:dateVal,
+        plannedMinutes:minutes, actualSeconds:0, timerState:'idle', runningSince:null,
+        status:'pending', createdAt: Date.now()
+      });
+    }
+    state.editingTaskId=undefined;
+    persist(); render(); return;
+  }
+
+  if(act==='start-timer'){ startTimer(el.dataset.id); return; }
+  if(act==='pause-timer'){ pauseTimer(el.dataset.id); return; }
+
+  if(act==='nowbar-toggle'){
+    var barId = document.getElementById('nowBar').dataset.id;
+    var barTask = getTask(barId);
+    if(!barTask) return;
+    if(barTask.timerState==='running') pauseTimer(barId); else startTimer(barId);
+    return;
+  }
+  if(act==='nowbar-open'){
+    var openId = document.getElementById('nowBar').dataset.id;
+    if(openId){ state.focusTaskId = openId; renderOverlays(); }
+    return;
+  }
+
+  if(act==='log-time'){
+    var tt = getTask(el.dataset.id);
+    if(tt && (tt.timerState==='running' || tt.timerState==='paused')){
+      state.focusTaskId = el.dataset.id; renderOverlays(); return;
+    }
+    state.logTaskId = el.dataset.id; renderOverlays(); return;
+  }
+  if(act==='close-log'){ state.logTaskId=null; renderOverlays(); return; }
+  if(act==='log-as-planned'){
+    var t = getTask(el.dataset.id);
+    if(t){ t.actualSeconds = plannedSeconds(t); t.timerState='idle'; t.runningSince=null; t.status='done'; persist(); }
+    state.logTaskId=null; render(); return;
+  }
+  if(act==='save-log'){
+    var t = getTask(el.dataset.id);
+    var mins = Math.max(0, parseFloat(document.getElementById('fActual').value)||0);
+    if(t){
+      t.actualSeconds = mins*60; t.timerState='idle'; t.runningSince=null;
+      t.status = mins*60 >= plannedSeconds(t)-0.5 ? 'done' : (mins>0?'in-progress':'pending');
+      persist();
+    }
+    state.logTaskId=null; render(); return;
+  }
+
+  if(act==='open-day'){ state.daySheetDate = el.dataset.date; renderOverlays(); return; }
+  if(act==='close-day'){ state.daySheetDate=null; renderOverlays(); return; }
+  if(act==='add-task-to-day'){
+    state.selectedDate = el.dataset.date;
+    state.daySheetDate = null;
+    state.editingTaskId = null;
+    renderOverlays(); return;
+  }
+
+  if(act==='focus-close'){ state.focusTaskId=null; render(); return; }
+  if(act==='focus-pause'){ pauseTimer(el.dataset.id); state.focusTaskId=el.dataset.id; renderOverlays(); return; }
+  if(act==='focus-resume'){ startTimer(el.dataset.id); state.focusTaskId=el.dataset.id; renderOverlays(); return; }
+  if(act==='focus-stop'){ stopTimer(el.dataset.id); state.focusTaskId=null; render(); return; }
+
+  if(act==='cal-prev' || act==='cal-next'){
+    var p = state.calMonth.split('-'); var y=+p[0], m=+p[1];
+    m += (act==='cal-next'?1:-1);
+    if(m<1){m=12;y--;} if(m>12){m=1;y++;}
+    state.calMonth = y+'-'+pad2(m);
+    render(); return;
+  }
+
+  if(act==='add-cat'){
+    var name = document.getElementById('newCatName').value.trim();
+    if(!name) return;
+    var selSwatch = document.querySelector('#newCatSwatches .swatch.sel');
+    var color = selSwatch ? selSwatch.dataset.color : SWATCHES[0];
+    state.settings.categories.push({key:'c'+Date.now(), label:name, color:color});
+    persist(); render(); return;
+  }
+  if(act==='del-cat'){
+    if(state.settings.categories.length<=1) return;
+    state.settings.categories = state.settings.categories.filter(function(c){ return c.key!==el.dataset.key; });
+    persist(); render(); return;
+  }
+  if(el.classList && el.classList.contains('swatch')){
+    document.querySelectorAll('#newCatSwatches .swatch').forEach(function(s){ s.classList.remove('sel'); });
+    el.classList.add('sel');
+    return;
+  }
+
+  if(act==='export-data'){
+    var blob = new Blob([JSON.stringify({tasks:state.tasks, settings:state.settings, dailyScores:state.dailyScores}, null, 2)], {type:'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ledger-backup-'+todayISO()+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    return;
+  }
+  if(act==='import-data'){
+    var inp = document.createElement('input');
+    inp.type='file'; inp.accept='application/json';
+    inp.onchange = function(){
+      var file = inp.files[0]; if(!file) return;
+      var reader = new FileReader();
+      reader.onload = function(){
+        try{
+          var data = JSON.parse(reader.result);
+          if(data.tasks) state.tasks = data.tasks;
+          if(data.settings) state.settings = data.settings;
+          if(data.dailyScores) state.dailyScores = data.dailyScores;
+          persist(); render();
+        }catch(err){ alert('Could not read that file.'); }
+      };
+      reader.readAsText(file);
+    };
+    inp.click();
+    return;
+  }
+  if(act==='reset-data'){
+    if(confirm('This clears all tasks and settings on this device. Continue?')){
+      localStorage.removeItem(TASKS_KEY); localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem(DAILY_SCORES_KEY);
+      state.tasks=[]; state.settings=Store.loadSettings(); state.dailyScores={};
+      persist(); render();
+    }
+    return;
+  }
+});
+
+// swatch picking inside the new-category field uses click above (delegated via .swatch class)
+
+document.querySelectorAll('nav.tabs button[data-view]').forEach(function(b){
+  b.addEventListener('click', function(){ state.view=b.dataset.view; render(); });
+});
+document.getElementById('app').addEventListener('click', function(e){
+  var el = e.target.closest('[data-act]');
+  if(!el) return;
+  if(el.dataset.act==='prev-day'){ state.selectedDate = addDays(state.selectedDate,-1); render(); }
+  if(el.dataset.act==='next-day'){ state.selectedDate = addDays(state.selectedDate,1); render(); }
+  if(el.dataset.act==='jump-today'){ state.selectedDate = todayISO(); render(); }
+});
+
+/* live-update the planned-minutes hint while typing (delegated, modal is rebuilt often) */
+document.getElementById('app').addEventListener('input', function(e){
+  if(e.target && e.target.id==='fMinutes'){
+    var hint = document.getElementById('fMinutesHint');
+    if(hint) hint.textContent = '= '+fmtMinutesShort(+e.target.value||0);
+  }
+});
+
+/* ============================================================
+   INIT
+   ============================================================ */
+render();
+
+})();
+</script>
+</body>
+</html>
